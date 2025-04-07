@@ -1,0 +1,196 @@
+﻿@page "/"
+@rendermode InteractiveServer
+
+<h3>Productos</h3>
+
+@if (!string.IsNullOrWhiteSpace(mensajeError))
+{
+    <div class="alert alert-danger">@mensajeError</div>
+}
+
+@if (mostrandoExistencias)
+{
+    <button class="btn btn-secondary mb-3" @onclick="ToggleVista">Listado</button>
+
+    <h4 class="mt-4">Existencias</h4>
+    <table class="table table-bordered">
+        <thead class="table-light">
+            <tr>
+                <th>Departamento</th>
+                <th>Cantidad de Productos</th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var depto in existenciasPorDepartamento)
+            {
+                <tr>
+                    <td>@depto.Key</td>
+                    <td>@depto.Value</td>
+                </tr>
+            }
+        </tbody>
+    </table>
+}
+else
+{
+    <div class="mb-3">
+        <label class="form-label">Número de Inventario</label>
+        <input type="number" class="form-control" @bind="producto.NumInventario" min="1" />
+    </div>
+
+    <div class="mb-3">
+        <label class="form-label">Nombre</label>
+        <input type="text" class="form-control" @bind="producto.Nombre" maxlength="200" />
+    </div>
+
+    <InputRadioGroup @bind-Value="producto.Departamento">
+        <InputRadio Value="@("Frutas")" /> Frutas<br />
+        <InputRadio Value="@("Verduras")" /> Verduras<br />
+        <InputRadio Value="@("Lácteos")" /> Lácteos
+    </InputRadioGroup>
+
+    @if (editando)
+    {
+        <div class="d-block mt-3">
+            <button class="btn btn-success me-2" @onclick="Actualizar">Actualizar</button>
+            <button class="btn btn-secondary" @onclick="Cancelar">Cancelar</button>
+        </div>
+    }
+    else
+    {
+        <button class="btn btn-primary d-block mt-3" @onclick="Guardar">Guardar</button>
+    }
+    <button class="btn btn-secondary mt-3" @onclick="ToggleVista">Existencias</button>
+    @if (productos.Count > 0)
+    {
+        <h4 class="mt-4">Listado</h4>
+        <table class="table table-bordered">
+            <thead class="table-light">
+                <tr>
+                    <th>Inventario</th>
+                    <th>Nombre</th>
+                    <th>Departamento</th>
+                    <th>Acciones</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var p in productos)
+                {
+                    <tr>
+                        <td>@p.NumInventario</td>
+                        <td>@p.Nombre</td>
+                        <td>@p.Departamento</td>
+                        <td>
+                            <button class="btn btn-sm btn-secondary me-2" @onclick="@(() => Editar(p))">Editar</button>
+                            <button class="btn btn-sm btn-danger" @onclick="@(() => Eliminar(p))">Eliminar</button>
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    }
+}
+
+@code {
+    private List<Producto> productos = new();
+    private Producto producto = new();
+    private string mensajeError = "";
+    private bool editando = false;
+    private bool mostrandoExistencias = false;
+    private Dictionary<string, int> existenciasPorDepartamento = new();
+
+    protected override void OnInitialized()
+    {
+        CalcularExistencias();
+    }
+
+    private void ToggleVista()
+    {
+        mostrandoExistencias = !mostrandoExistencias;
+        if (mostrandoExistencias)
+        {
+            CalcularExistencias();
+        }
+    }
+
+    private void CalcularExistencias()
+    {
+        existenciasPorDepartamento = productos
+            .GroupBy(p => p.Departamento)
+            .ToDictionary(g => g.Key, g => g.Count());
+    }
+
+    private void Guardar()
+    {
+        if (producto.NumInventario <= 0 || string.IsNullOrWhiteSpace(producto.Nombre) || string.IsNullOrWhiteSpace(producto.Departamento))
+        {
+            mensajeError = "Todos los campos son obligatorios.";
+            return;
+        }
+
+        if (productos.Any(p => p.NumInventario == producto.NumInventario))
+        {
+            mensajeError = "El número de inventario ya está registrado.";
+            return;
+        }
+
+        productos.Add(new Producto
+            {
+                NumInventario = producto.NumInventario,
+                Nombre = producto.Nombre,
+                Departamento = producto.Departamento
+            });
+
+        CalcularExistencias();
+        Limpiar();
+    }
+
+    private void Eliminar(Producto p)
+    {
+        productos.Remove(p);
+        CalcularExistencias();
+    }
+
+    private void Editar(Producto p)
+    {
+        producto = new Producto
+            {
+                NumInventario = p.NumInventario,
+                Nombre = p.Nombre,
+                Departamento = p.Departamento
+            };
+        editando = true;
+    }
+
+    private void Actualizar()
+    {
+        var existente = productos.FirstOrDefault(p => p.NumInventario == producto.NumInventario);
+        if (existente != null)
+        {
+            existente.Nombre = producto.Nombre;
+            existente.Departamento = producto.Departamento;
+            CalcularExistencias();
+        }
+
+        Limpiar();
+    }
+
+    private void Cancelar()
+    {
+        Limpiar();
+    }
+
+    private void Limpiar()
+    {
+        producto = new Producto();
+        mensajeError = "";
+        editando = false;
+    }
+
+    public class Producto
+    {
+        public int NumInventario { get; set; }
+        public string Nombre { get; set; }
+        public string Departamento { get; set; }
+    }
+}
